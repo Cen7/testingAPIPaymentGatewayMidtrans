@@ -1,125 +1,126 @@
-import React, { useState } from "react";
-import { product } from "../libs/product";
-import Link from "next/link";
+"use client";
 
-const Checkout = () => {
-  const [quantity, setQuantity] = useState(1);
-  const [paymentUrl, setPaymentUrl] = useState("");
+import { useEffect, useState } from "react";
 
-  const decreaseQuantity = () => {
-    setQuantity((prevState) => (quantity > 1 ? prevState - 1 : null));
-  };
+export default function Checkout({ selectedItems }) {
+  const [showOrderSummary, setShowOrderSummary] = useState(false);
+  const [subtotal, setSubtotal] = useState(0);
 
-  const increaseQuantity = () => {
-    setQuantity((prevState) => prevState + 1);
-  };
+  useEffect(() => {
+    // Hitung subtotal dari item yang dipilih
+    const total = selectedItems.reduce(
+      (acc, item) => acc + item.price * item.quantity,
+      0
+    );
+    setSubtotal(total);
+  }, [selectedItems]);
 
-  const checkout = async () => {
-    const data = {
-      id: product.id,
-      productName: product.name,
-      price: product.price,
-      quantity: quantity
+  const handleCheckoutClick = () => {
+    if (selectedItems.length === 0) {
+      alert("Pilih setidaknya satu item untuk checkout.");
+      return;
     }
+    setShowOrderSummary(true);
+  };
 
+  const handlePayment = async () => {
     const response = await fetch("/api/tokenizer", {
       method: "POST",
-      body: JSON.stringify(data)
-    })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: selectedItems }),
+    });
 
-    const requestData = await response.json()
-    console.log({ requestData })
-    window.snap.pay(requestData.token)
+    const data = await response.json();
 
-  };
-
-  const generatePaymentLink = async () => {
-    const secret = process.env.NEXT_PUBLIC_SECRET
-    const encodedSecret = Buffer.from(secret).toString('base64')
-    const basicAuth = `Basic ${encodedSecret}`
-
-    let data = {
-      item_details: [
-        {
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          quantity: quantity
-        }
-      ],
-      transaction_details: {
-        order_id: product.id,
-        gross_amount: product.price * quantity
-      }
+    if (data.token) {
+      window.snap.pay(data.token);
+    } else {
+      alert("Gagal memulai pembayaran");
     }
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API}/v1/payment-links`, {
-      method: "POST",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Authorization": basicAuth
-      },
-      body: JSON.stringify(data)
-    })
-
-    const paymentLink = await response.json()
-    console.log(paymentLink)
-    setPaymentUrl(paymentLink.payment_url)
   };
+
+  const closeOrderSummary = () => {
+    setShowOrderSummary(false);
+  };
+
+  useEffect(() => {
+    const snapScript = "https://app.sandbox.midtrans.com/snap/snap.js";
+    const clientKey = process.env.NEXT_PUBLIC_CLIENT;
+    
+    // Pastikan clientKey ada sebelum membuat script
+    if (!clientKey) {
+      console.error("Midtrans Client Key tidak ditemukan");
+      return;
+    }
+    
+    const script = document.createElement("script");
+    script.src = snapScript;
+    script.setAttribute("data-client-key", clientKey);
+    script.async = true;
+    
+    document.body.appendChild(script);
+    
+    return () => {
+      // Pastikan script masih ada sebelum menghapusnya
+      if (script && document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div className="flex sm:gap-4">
-          <button
-            className="transition-all hover:opacity-75"
-            onClick={decreaseQuantity}
-          >
-            ➖
-          </button>
-
-          <input
-            type="number"
-            id="quantity"
-            value={quantity}
-            className="h-10 w-16 text-black border-transparent text-center"
-            onChange={(e) => setQuantity(Number(e.target.value))}
-          />
-
-
-          <button
-            className="transition-all hover:opacity-75"
-            onClick={increaseQuantity}
-          >
-            ➕
-          </button>
-        </div>
-        <button
-          className="rounded bg-indigo-500 p-4 text-sm font-medium transition hover:scale-105"
-          onClick={checkout}
-        >
-          Checkout
-        </button>
-      </div>
       <button
-        className="text-indigo-500 py-4 text-sm font-medium transition hover:scale-105"
-        onClick={generatePaymentLink}
+        className="bg-blue-500 text-white px-4 py-2 rounded"
+        onClick={handleCheckoutClick}
       >
-        Create Payment Link
+        Checkout
       </button>
-      {paymentUrl && (
-        <Link
-          href={paymentUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block text-blue-600 underline mt-2"
-        >
-          Klik di sini untuk melakukan pembayaran
-        </Link>
+
+      {/* Modal ringkasan pesanan */}
+      {showOrderSummary && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl text-black font-bold mb-4">Ringkasan Pesanan</h2>
+            
+            <div className="max-h-60 text-black overflow-y-auto mb-4">
+              {selectedItems.map((item) => (
+                <div key={item.id} className="flex justify-between items-center py-2 border-b">
+                  <div>
+                    <p className="font-medium text-base">{item.name}</p>
+                    <p className="text-sm text-gray-600">
+                      {item.quantity} x Rp {item.price.toLocaleString()}
+                    </p>
+                  </div>
+                  <p className="font-medium">
+                    Rp {(item.price * item.quantity).toLocaleString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex justify-between text-black font-bold text-lg mt-4 pt-2 border-t">
+              <p>Total</p>
+              <p>Rp {subtotal.toLocaleString()}</p>
+            </div>
+            
+            <div className="flex justify-between mt-6">
+              <button
+                className="bg-gray-300 text-gray-800 px-4 py-2 rounded"
+                onClick={closeOrderSummary}
+              >
+                Kembali
+              </button>
+              <button
+                className="bg-blue-500 text-white px-4 py-2 rounded"
+                onClick={handlePayment}
+              >
+                Bayar Sekarang
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
-};
-
-export default Checkout;
+}
