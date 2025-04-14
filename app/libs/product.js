@@ -1,13 +1,14 @@
-export const product = {
-    id: ~~(Math.random() * 100) + 1,
-    image: "/img.png",
-    name: "LEVI'S® WOMEN'S XL TRUCKER JACKET",
-    price: 350000,
-    description: "Lorem, ipsum dolor sit amet consectetur adipisicing elit. Ipsa accusantium, aspernatur provident beatae corporis veniam atque facilis, consequuntur assumenda, vitae dignissimos iste exercitationem dolor eveniet alias eos ullam nesciunt voluptatum",
-    colors: [
-        { value: "putih", label: "Putih" },
-        { value: "biru", label: "Biru" },
-        { value: "coklat", label: "Coklat" },
-        { value: "kuning", label: "Kuning" }
-    ]
-}
+export const product = [
+    {
+        id: 1,
+        image: "/miewagyu.jpeg",
+        name: "Mie Wagyu",
+        price: 20000,
+      },
+      {
+        id: 2,
+        image: "/nasiGoreng.jpg",
+        name: "Nasi Goreng",
+        price: 25000,
+      }
+];
